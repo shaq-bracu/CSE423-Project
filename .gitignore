@@ -1,174 +1,224 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+from OpenGL.GL import *
+from OpenGL.GLUT import *
+from OpenGL.GLU import *
 
-# C extensions
-*.so
+# Camera-related variables
+camera_pos = (0,500,500)
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+fovY = 120  # Field of view
+GRID_LENGTH = 600  # Length of grid lines
+rand_var = 423
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
+    glColor3f(1,1,1)
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    
+    # Set up an orthographic projection that matches window coordinates
+    gluOrtho2D(0, 1000, 0, 800)  # left, right, bottom, top
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
+    
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+    
+    # Draw text at (x, y) in screen coordinates
+    glRasterPos2f(x, y)
+    for ch in text:
+        glutBitmapCharacter(font, ord(ch))
+    
+    # Restore original projection and modelview matrices
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
 
-# Translations
-*.mo
-*.pot
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+def draw_shapes():
 
-# Flask stuff:
-instance/
-.webassets-cache
+    glPushMatrix()  # Save the current matrix state
+    glColor3f(1, 0, 0)
+    glTranslatef(0, 0, 0)  
+    glutSolidCube(60) # Take cube size as the parameter
+    glTranslatef(0, 0, 100) 
+    glColor3f(0, 1, 0)
+    glutSolidCube(60) 
 
-# Scrapy stuff:
-.scrapy
+    glColor3f(1, 1, 0)
+    gluCylinder(gluNewQuadric(), 40, 5, 150, 10, 10)  # parameters are: quadric, base radius, top radius, height, slices, stacks
+    glTranslatef(100, 0, 100) 
+    glRotatef(90, 0, 1, 0)  # parameters are: angle, x, y, z
+    gluCylinder(gluNewQuadric(), 40, 5, 150, 10, 10)
 
-# Sphinx documentation
-docs/_build/
+    glColor3f(0, 1, 1)
+    glTranslatef(300, 0, 100) 
+    gluSphere(gluNewQuadric(), 80, 10, 10)  # parameters are: quadric, radius, slices, stacks
 
-# PyBuilder
-.pybuilder/
-target/
+    glPopMatrix()  # Restore the previous matrix state
 
-# Jupyter Notebook
-.ipynb_checkpoints
 
-# IPython
-profile_default/
-ipython_config.py
+def keyboardListener(key, x, y):
+    """
+    Handles keyboard inputs for player movement, gun rotation, camera updates, and cheat mode toggles.
+    """
+    # # Move forward (W key)
+    # if key == b'w':  
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+    # # Move backward (S key)
+    # if key == b's':
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+    # # Rotate gun left (A key)
+    # if key == b'a':
 
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
+    # # Rotate gun right (D key)
+    # if key == b'd':
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
+    # # Toggle cheat mode (C key)
+    # if key == b'c':
 
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
-.pdm.toml
-.pdm-python
-.pdm-build/
+    # # Toggle cheat vision (V key)
+    # if key == b'v':
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+    # # Reset the game if R key is pressed
+    # if key == b'r':
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
 
-# SageMath parsed files
-*.sage.py
+def specialKeyListener(key, x, y):
+    """
+    Handles special key inputs (arrow keys) for adjusting the camera angle and height.
+    """
+    global camera_pos
+    x, y, z = camera_pos
+    # Move camera up (UP arrow key)
+    # if key == GLUT_KEY_UP:
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+    # # Move camera down (DOWN arrow key)
+    # if key == GLUT_KEY_DOWN:
 
-# Spyder project settings
-.spyderproject
-.spyproject
+    # moving camera left (LEFT arrow key)
+    if key == GLUT_KEY_LEFT:
+        x -= 1  # Small angle decrement for smooth movement
 
-# Rope project settings
-.ropeproject
+    # moving camera right (RIGHT arrow key)
+    if key == GLUT_KEY_RIGHT:
+        x += 1  # Small angle increment for smooth movement
 
-# mkdocs documentation
-/site
+    camera_pos = (x, y, z)
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
-# Pyre type checker
-.pyre/
+def mouseListener(button, state, x, y):
+    """
+    Handles mouse inputs for firing bullets (left click) and toggling camera mode (right click).
+    """
+        # # Left mouse button fires a bullet
+        # if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
 
-# pytype static type analyzer
-.pytype/
+        # # Right mouse button toggles camera tracking mode
+        # if button == GLUT_RIGHT_BUTTON and state == GLUT_DOWN:
 
-# Cython debug symbols
-cython_debug/
 
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+def setupCamera():
+    """
+    Configures the camera's projection and view settings.
+    Uses a perspective projection and positions the camera to look at the target.
+    """
+    glMatrixMode(GL_PROJECTION)  # Switch to projection matrix mode
+    glLoadIdentity()  # Reset the projection matrix
+    # Set up a perspective projection (field of view, aspect ratio, near clip, far clip)
+    gluPerspective(fovY, 1.25, 0.1, 1500) # Think why aspect ration is 1.25?
+    glMatrixMode(GL_MODELVIEW)  # Switch to model-view matrix mode
+    glLoadIdentity()  # Reset the model-view matrix
 
-# Ruff stuff:
-.ruff_cache/
+    # Extract camera position and look-at target
+    x, y, z = camera_pos
+    # Position the camera and set its orientation
+    gluLookAt(x, y, z,  # Camera position
+              0, 0, 0,  # Look-at target
+              0, 0, 1)  # Up vector (z-axis)
 
-# PyPI configuration file
-.pypirc
+
+def idle():
+    """
+    Idle function that runs continuously:
+    - Triggers screen redraw for real-time updates.
+    """
+    # Ensure the screen updates with the latest changes
+    glutPostRedisplay()
+
+
+def showScreen():
+    """
+    Display function to render the game scene:
+    - Clears the screen and sets up the camera.
+    - Draws everything of the screen
+    """
+    # Clear color and depth buffers
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()  # Reset modelview matrix
+    glViewport(0, 0, 1000, 800)  # Set viewport size
+
+    setupCamera()  # Configure camera perspective
+
+    # Draw a random points
+    glPointSize(20)
+    glBegin(GL_POINTS)
+    glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+    glEnd()
+
+    # Draw the grid (game floor)
+    glBegin(GL_QUADS)
+    
+    glColor3f(1, 1, 1)
+    glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+    glVertex3f(0, GRID_LENGTH, 0)
+    glVertex3f(0, 0, 0)
+    glVertex3f(-GRID_LENGTH, 0, 0)
+
+    glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
+    glVertex3f(0, -GRID_LENGTH, 0)
+    glVertex3f(0, 0, 0)
+    glVertex3f(GRID_LENGTH, 0, 0)
+
+
+    glColor3f(0.7, 0.5, 0.95)
+    glVertex3f(-GRID_LENGTH, -GRID_LENGTH, 0)
+    glVertex3f(-GRID_LENGTH, 0, 0)
+    glVertex3f(0, 0, 0)
+    glVertex3f(0, -GRID_LENGTH, 0)
+
+    glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
+    glVertex3f(GRID_LENGTH, 0, 0)
+    glVertex3f(0, 0, 0)
+    glVertex3f(0, GRID_LENGTH, 0)
+    glEnd()
+
+    # Display game info text at a fixed screen position
+    draw_text(10, 770, f"A Random Fixed Position Text")
+    draw_text(10, 740, f"See how the position and variable change?: {rand_var}")
+
+    draw_shapes()
+
+    # Swap buffers for smooth rendering (double buffering)
+    glutSwapBuffers()
+
+
+# Main function to set up OpenGL window and loop
+def main():
+    glutInit()
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)  # Double buffering, RGB color, depth test
+    glutInitWindowSize(1000, 800)  # Window size
+    glutInitWindowPosition(0, 0)  # Window position
+    wind = glutCreateWindow(b"3D OpenGL Intro")  # Create the window
+
+    glutDisplayFunc(showScreen)  # Register display function
+    glutKeyboardFunc(keyboardListener)  # Register keyboard listener
+    glutSpecialFunc(specialKeyListener)
+    glutMouseFunc(mouseListener)
+    glutIdleFunc(idle)  # Register the idle function to move the bullet automatically
+
+    glutMainLoop()  # Enter the GLUT main loop
+
+if __name__ == "__main__":
+    main()
