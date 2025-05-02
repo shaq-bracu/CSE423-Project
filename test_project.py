@@ -485,7 +485,7 @@ def setupCamera():
     # Extract camera position and look-at target
     if fps :
         if vtog :
-            x,y,z =   xi,yi ,100+400
+            x,y,z =   -100+xi,yi ,800
             lx,ly,lz = 200+xi,yi,500
             
         else:
@@ -525,10 +525,10 @@ def idle():
 
     # # this is for running automatic. commented this for easy coding and fixing
 
-    # yi+= 2.5*math.sin(math.radians(rt)) 
-    # xi+= 2.5*math.cos(math.radians(rt)) 
-    # biy+= 2.5*math.sin(math.radians(rt)) 
-    # bix+= 2.5*math.cos(math.radians(rt)) 
+    yi+= 2.5*math.sin(math.radians(rt)) 
+    xi+= 2.5*math.cos(math.radians(rt)) 
+    biy+= 2.5*math.sin(math.radians(rt)) 
+    bix+= 2.5*math.cos(math.radians(rt)) 
     if cheat:
         rt+=1
     for i in bullets:
