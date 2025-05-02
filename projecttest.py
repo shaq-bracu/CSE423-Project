@@ -15,13 +15,17 @@ camera_angle = 0
 game_over = False
 game_won = False
 score = 0
-ROAD_LENGTH = 10000  # The finish line will be at this z position
+ROAD_LENGTH = 2000  # The finish line will be at this z position
 ROAD_WIDTH = 400
 LANE_COUNT = 3  # Number of lanes
 LANE_WIDTH = ROAD_WIDTH / LANE_COUNT
 current_lane = 1  # Middle lane
 move_speed = 5  # Forward movement speed
 automatic_forward = True
+# Constants for finish line
+finish_line_start_z = ROAD_LENGTH - 50
+finish_line_end_z = ROAD_LENGTH
+finish_line_width = ROAD_WIDTH
 
 # Obstacles
 humans = []
@@ -108,14 +112,91 @@ def draw_road():
         glEnd()
     glDisable(GL_LINE_STIPPLE)
 
-    # Draw finish line
-    glColor3f(1, 0, 0)  # Red finish line
-    glBegin(GL_QUADS)
-    glVertex3f(-ROAD_WIDTH/2, 2, ROAD_LENGTH - 50)
-    glVertex3f(ROAD_WIDTH/2, 2, ROAD_LENGTH - 50)
-    glVertex3f(ROAD_WIDTH/2, 2, ROAD_LENGTH - 40)
-    glVertex3f(-ROAD_WIDTH/2, 2, ROAD_LENGTH - 40)
-    glEnd()
+    # # Draw finish line
+    # glColor3f(1, 0, 0)  # Red finish line
+    # glBegin(GL_QUADS)
+    # glVertex3f(-ROAD_WIDTH/2, 2, ROAD_LENGTH - 50)
+    # glVertex3f(ROAD_WIDTH/2, 2, ROAD_LENGTH - 50)
+    # glVertex3f(ROAD_WIDTH/2, 2, ROAD_LENGTH - 40)
+    # glVertex3f(-ROAD_WIDTH/2, 2, ROAD_LENGTH - 40)
+    # glEnd()
+    
+def draw_finish_line_floor():
+    glPushMatrix()
+    glTranslatef(0, 0.1, finish_line_start_z)  # Slightly above road to avoid z-fighting
+    segment_length = 10
+    zigzag_height = 10
+    num_segments = int((finish_line_end_z - finish_line_start_z) / segment_length)
+    num_zigzags = int(finish_line_width / zigzag_height)
+
+    for i in range(num_segments):
+        z = i * segment_length
+        for j in range(num_zigzags):
+            x_start = -finish_line_width / 2 + j * zigzag_height
+            # Alternate black and white triangles to form zigzag
+            if (i + j) % 2 == 0:
+                glColor3f(1, 1, 1)  # White
+            else:
+                glColor3f(0, 0, 0)  # Black
+            glBegin(GL_TRIANGLES)
+            # Triangle 1
+            glVertex3f(x_start, 0, z)
+            glVertex3f(x_start + zigzag_height, 0, z + segment_length / 2)
+            glVertex3f(x_start, 0, z + segment_length)
+            glEnd()
+
+            # Triangle 2
+            glBegin(GL_TRIANGLES)
+            glVertex3f(x_start + zigzag_height, 0, z + segment_length / 2)
+            glVertex3f(x_start + zigzag_height, 0, z + segment_length)
+            glVertex3f(x_start, 0, z + segment_length)
+            glEnd()
+    glPopMatrix()
+
+def draw_finish_line_banner():
+    banner_height = 150  # Height from ground
+    banner_top = 200     # Top of banner
+    banner_z = ROAD_LENGTH - 30  # Position along road
+    
+    # Draw the banner poles
+    glPushMatrix()
+    
+    # Left pole
+    glColor3f(0.7, 0.7, 0.7)  # Gray
+    glPushMatrix()
+    glTranslatef(-ROAD_WIDTH/2 - 10, 0, banner_z)
+    glRotatef(-90, 1, 0, 0)
+    gluCylinder(gluNewQuadric(), 5, 5, banner_top, 16, 16)
+    glPopMatrix()
+    
+    # Right pole
+    glPushMatrix()
+    glTranslatef(ROAD_WIDTH/2 + 10, 0, banner_z)
+    glRotatef(-90, 1, 0, 0)
+    gluCylinder(gluNewQuadric(), 5, 5, banner_top, 16, 16)
+    glPopMatrix()
+    
+    # Banner cloth - alternating red and white stripes
+    stripe_height = 20
+    num_stripes = int((banner_top - banner_height) / stripe_height)
+    
+    for i in range(num_stripes):
+        if i % 2 == 0:
+            glColor3f(1, 0, 0)  # Red
+        else:
+            glColor3f(1, 1, 1)  # White
+            
+        y_bottom = banner_height + i * stripe_height
+        y_top = y_bottom + stripe_height
+        
+        glBegin(GL_QUADS)
+        glVertex3f(-ROAD_WIDTH/2 - 10, y_bottom, banner_z)
+        glVertex3f(ROAD_WIDTH/2 + 10, y_bottom, banner_z)
+        glVertex3f(ROAD_WIDTH/2 + 10, y_top, banner_z)
+        glVertex3f(-ROAD_WIDTH/2 - 10, y_top, banner_z)
+        glEnd()
+    
+    glPopMatrix()
 
 
 def draw_human(human):
@@ -264,7 +345,7 @@ def setupCamera():
         # First-person view from driver's seat
         cam_x = player_pos[0]
         cam_y = player_pos[1] + 40
-        cam_z = player_pos[2] + 50
+        cam_z = player_pos[2] + 40
         gluLookAt(cam_x, cam_y, cam_z,
                   cam_x, cam_y, cam_z + 100,
                   0, 1, 0)
@@ -346,7 +427,9 @@ def showScreen():
     # Draw game elements
     draw_road()
     draw_car()
-    
+    draw_finish_line_banner()
+    draw_finish_line_floor() 
+       
     for human in humans:
         draw_human(human)
     
@@ -357,9 +440,11 @@ def showScreen():
     draw_text(10, 770, f"Score: {score}")
     
     if game_over:
-        draw_text(400, 400, "GAME OVER! Press R to restart", font=GLUT_BITMAP_TIMES_ROMAN_24)
+        draw_text(400, 400, "GAME OVER! Press R to restart" )
     elif game_won:
-        draw_text(400, 400, "YOU WON! Press R to play again", font=GLUT_BITMAP_TIMES_ROMAN_24)
+        draw_text(400, 400, "YOU WON! Press R to play again")
+    
+
     
     glutSwapBuffers()
 
