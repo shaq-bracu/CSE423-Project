@@ -5,34 +5,49 @@ import math
 import random
 import time
 
-# Global variables
-fovY = 100
-player_pos = [0, 0, 0]  # Car starting position (x, y, z)
-camera_mode = "third"
-camera_distance = 500
-camera_height = 300
-camera_angle = 0
+# Coordinate System Constants
+X_MIN = -250  # Left edge of road
+X_MAX = 250   # Right edge of road
+Y_MIN = 0     # Ground level
+Y_MAX = 300   # Maximum height
+Z_MIN = 0     # Start line
+Z_MAX = 10000 # Finish line position
+
+# Game State
+LANE_COUNT = 3
+LANE_WIDTH = (X_MAX - X_MIN) / LANE_COUNT
+LANE_POSITIONS = [
+    X_MIN + (LANE_WIDTH/2),                # Left lane
+    X_MIN + (LANE_WIDTH/2) + LANE_WIDTH,   # Middle lane
+    X_MIN + (LANE_WIDTH/2) + 2*LANE_WIDTH  # Right lane
+]
+
+# Player variables
+player_pos = [0, 20, 0]  # Initial position in coordinate system
+current_lane = 1         # Middle lane (0=left, 1=middle, 2=right)
+move_speed = 5           # Units per frame in Z direction
+target_x = 0             # Target X position for smooth movement
+is_transitioning = False # Whether car is currently changing lanes
+transition_speed = 2.0   # Speed of lane transition
+
+# Game state
+camera_mode = "third"    # Third-person view by default
 game_over = False
 game_won = False
 score = 0
-ROAD_LENGTH = 2000  # The finish line will be at this z position
-ROAD_WIDTH = 400
-LANE_COUNT = 3  # Number of lanes
-LANE_WIDTH = ROAD_WIDTH / LANE_COUNT
-current_lane = 1  # Middle lane
-move_speed = 5  # Forward movement speed
-automatic_forward = True
-# Constants for finish line
-finish_line_start_z = ROAD_LENGTH - 50
-finish_line_end_z = ROAD_LENGTH
-finish_line_width = ROAD_WIDTH
+super_power_active = False
+bullets = []
 
-# Obstacles
+# Game objects
 humans = []
 coins = []
-enemies = []
+
+def map_to_lane(lane_index):
+    """Convert lane index to X coordinate"""
+    return LANE_POSITIONS[lane_index]
 
 def draw_car():
+    """Draw the player's car at its current position in the coordinate system"""
     glPushMatrix()
     glTranslatef(player_pos[0], player_pos[1], player_pos[2])
     
@@ -79,104 +94,100 @@ def draw_car():
     glPopMatrix()
 
 def draw_road():
-    # Draw the main road
+    """Draw the road using coordinate system boundaries"""
+    # Main road surface
     glColor3f(0.3, 0.3, 0.3)  # Dark gray for the road
     glBegin(GL_QUADS)
-    glVertex3f(-ROAD_WIDTH/2, 0, 0)
-    glVertex3f(ROAD_WIDTH/2, 0, 0)
-    glVertex3f(ROAD_WIDTH/2, 0, ROAD_LENGTH)
-    glVertex3f(-ROAD_WIDTH/2, 0, ROAD_LENGTH)
+    glVertex3f(X_MIN, Y_MIN, Z_MIN)
+    glVertex3f(X_MAX, Y_MIN, Z_MIN)
+    glVertex3f(X_MAX, Y_MIN, Z_MAX)
+    glVertex3f(X_MIN, Y_MIN, Z_MAX)
     glEnd()
 
-    # Draw solid white borders
+    # Road borders (solid white lines)
     glColor3f(1, 1, 1)
     glLineWidth(6)
     glBegin(GL_LINES)
     # Left border
-    glVertex3f(-ROAD_WIDTH/2, 1, 0)
-    glVertex3f(-ROAD_WIDTH/2, 1, ROAD_LENGTH)
+    glVertex3f(X_MIN, Y_MIN + 1, Z_MIN)
+    glVertex3f(X_MIN, Y_MIN + 1, Z_MAX)
     # Right border
-    glVertex3f(ROAD_WIDTH/2, 1, 0)
-    glVertex3f(ROAD_WIDTH/2, 1, ROAD_LENGTH)
+    glVertex3f(X_MAX, Y_MIN + 1, Z_MIN)
+    glVertex3f(X_MAX, Y_MIN + 1, Z_MAX)
     glEnd()
 
-    # Draw dashed white lane dividers
+    # Lane dividers (dashed white lines)
     glEnable(GL_LINE_STIPPLE)
     glLineStipple(1, 0x00FF)  # Dash pattern
     glLineWidth(4)
     for i in range(1, LANE_COUNT):
-        lane_x = -ROAD_WIDTH/2 + i * LANE_WIDTH
+        lane_x = X_MIN + i * LANE_WIDTH
         glBegin(GL_LINES)
-        glVertex3f(lane_x, 1.5, 0)
-        glVertex3f(lane_x, 1.5, ROAD_LENGTH)
+        glVertex3f(lane_x, Y_MIN + 1.5, Z_MIN)
+        glVertex3f(lane_x, Y_MIN + 1.5, Z_MAX)
         glEnd()
     glDisable(GL_LINE_STIPPLE)
 
-    # # Draw finish line
-    # glColor3f(1, 0, 0)  # Red finish line
-    # glBegin(GL_QUADS)
-    # glVertex3f(-ROAD_WIDTH/2, 2, ROAD_LENGTH - 50)
-    # glVertex3f(ROAD_WIDTH/2, 2, ROAD_LENGTH - 50)
-    # glVertex3f(ROAD_WIDTH/2, 2, ROAD_LENGTH - 40)
-    # glVertex3f(-ROAD_WIDTH/2, 2, ROAD_LENGTH - 40)
-    # glEnd()
-    
-def draw_finish_line_floor():
+def draw_finish_line():
+    """Draw checkered finish line and banner"""
+    # Checkered floor pattern
     glPushMatrix()
-    glTranslatef(0, 0.1, finish_line_start_z)  # Slightly above road to avoid z-fighting
     segment_length = 10
     zigzag_height = 10
-    num_segments = int((finish_line_end_z - finish_line_start_z) / segment_length)
-    num_zigzags = int(finish_line_width / zigzag_height)
+    finish_start = Z_MAX - 50
+    finish_end = Z_MAX
+    
+    glTranslatef(0, Y_MIN + 0.1, finish_start)  # Slightly above road
+    
+    num_segments = int((finish_end - finish_start) / segment_length)
+    num_zigzags = int((X_MAX - X_MIN) / zigzag_height)
 
     for i in range(num_segments):
         z = i * segment_length
         for j in range(num_zigzags):
-            x_start = -finish_line_width / 2 + j * zigzag_height
-            # Alternate black and white triangles to form zigzag
+            x_start = X_MIN + j * zigzag_height
+            # Alternate black and white
             if (i + j) % 2 == 0:
                 glColor3f(1, 1, 1)  # White
             else:
                 glColor3f(0, 0, 0)  # Black
+                
             glBegin(GL_TRIANGLES)
-            # Triangle 1
+            # First triangle
             glVertex3f(x_start, 0, z)
             glVertex3f(x_start + zigzag_height, 0, z + segment_length / 2)
             glVertex3f(x_start, 0, z + segment_length)
             glEnd()
 
-            # Triangle 2
+            # Second triangle
             glBegin(GL_TRIANGLES)
             glVertex3f(x_start + zigzag_height, 0, z + segment_length / 2)
             glVertex3f(x_start + zigzag_height, 0, z + segment_length)
             glVertex3f(x_start, 0, z + segment_length)
             glEnd()
     glPopMatrix()
-
-def draw_finish_line_banner():
-    banner_height = 150  # Height from ground
-    banner_top = 200     # Top of banner
-    banner_z = ROAD_LENGTH - 30  # Position along road
     
-    # Draw the banner poles
-    glPushMatrix()
+    # Banner above finish line
+    banner_height = 150
+    banner_top = 200
+    banner_z = Z_MAX - 30
     
     # Left pole
     glColor3f(0.7, 0.7, 0.7)  # Gray
     glPushMatrix()
-    glTranslatef(-ROAD_WIDTH/2 - 10, 0, banner_z)
+    glTranslatef(X_MIN - 10, Y_MIN, banner_z)
     glRotatef(-90, 1, 0, 0)
     gluCylinder(gluNewQuadric(), 5, 5, banner_top, 16, 16)
     glPopMatrix()
     
     # Right pole
     glPushMatrix()
-    glTranslatef(ROAD_WIDTH/2 + 10, 0, banner_z)
+    glTranslatef(X_MAX + 10, Y_MIN, banner_z)
     glRotatef(-90, 1, 0, 0)
     gluCylinder(gluNewQuadric(), 5, 5, banner_top, 16, 16)
     glPopMatrix()
     
-    # Banner cloth - alternating red and white stripes
+    # Banner with stripes
     stripe_height = 20
     num_stripes = int((banner_top - banner_height) / stripe_height)
     
@@ -190,16 +201,14 @@ def draw_finish_line_banner():
         y_top = y_bottom + stripe_height
         
         glBegin(GL_QUADS)
-        glVertex3f(-ROAD_WIDTH/2 - 10, y_bottom, banner_z)
-        glVertex3f(ROAD_WIDTH/2 + 10, y_bottom, banner_z)
-        glVertex3f(ROAD_WIDTH/2 + 10, y_top, banner_z)
-        glVertex3f(-ROAD_WIDTH/2 - 10, y_top, banner_z)
+        glVertex3f(X_MIN - 10, y_bottom, banner_z)
+        glVertex3f(X_MAX + 10, y_bottom, banner_z)
+        glVertex3f(X_MAX + 10, y_top, banner_z)
+        glVertex3f(X_MIN - 10, y_top, banner_z)
         glEnd()
-    
-    glPopMatrix()
-
 
 def draw_human(human):
+    """Draw a human character with walking animation"""
     if not human['active']:
         return
     
@@ -227,7 +236,7 @@ def draw_human(human):
     glutSolidSphere(8, 16, 16)
     glPopMatrix()
     
-    # Arms - animate based on walking cycle
+    # Arms with walking animation
     arm_angle = 25 * math.sin(human['walk_cycle'])
     
     # Left arm
@@ -249,7 +258,7 @@ def draw_human(human):
     glutSolidCube(1)
     glPopMatrix()
     
-    # Legs - animate based on walking cycle
+    # Legs with walking animation
     leg_angle = 25 * math.sin(human['walk_cycle'])
     
     # Left leg
@@ -273,74 +282,112 @@ def draw_human(human):
     
     glPopMatrix()
 
-
-
 def draw_coin(coin):
+    """Draw a spinning coin"""
     if not coin['active']:
         return
 
     glPushMatrix()
-    # Move to coin's position
     glTranslatef(coin['pos'][0], coin['pos'][1], coin['pos'][2])
-
-    # Spin around z-axis (left-to-right)
+    
+    # Make the coin stand up (rotate 90 degrees around x-axis)
+    glRotatef(90, 1, 0, 0)
+    
+    # Spin the coin around its own axis
     glRotatef(coin['rotation'], 0, 0, 1)
-
-    # Draw a gold ring (torus)
-    glColor3f(1, 0.85, 0.1)
-    # glutSolidTorus(innerRadius, outerRadius, sides, rings)
-    glutSolidTorus(4, 15, 24, 32)
-
+    
+    # Draw a golden coin using cylinder and disks
+    glColor3f(1, 0.85, 0.1)  # Gold color
+    
+    # Create quadric object for drawing
+    quadric = gluNewQuadric()
+    
+    # Draw the coin edge (thin cylinder)
+    gluCylinder(quadric, 15, 15, 3, 32, 1)
+    
+    # Draw front face (disk)
+    glPushMatrix()
+    gluDisk(quadric, 0, 15, 32, 1)
+    glPopMatrix()
+    
+    # Draw back face (disk)
+    glPushMatrix()
+    glTranslatef(0, 0, 3)
+    gluDisk(quadric, 0, 15, 32, 1)
+    glPopMatrix()
+    
     glPopMatrix()
 
-
+def draw_bullet(bullet):
+    """Draw a bullet for super power"""
+    if not bullet['active']:
+        return
+        
+    glPushMatrix()
+    glTranslatef(bullet['pos'][0], bullet['pos'][1], bullet['pos'][2])
+    glColor3f(1, 0.5, 0)  # Orange color
+    glutSolidSphere(5, 10, 10)  # Small sphere for the bullet
+    
+    # Add a glowing trail
+    glColor4f(1, 0.3, 0, 0.5)  # Semi-transparent orange
+    glPushMatrix()
+    glScalef(1, 1, 5)  # Elongated in z direction
+    glutSolidSphere(4, 8, 8)
+    glPopMatrix()
+    
+    glPopMatrix()
 
 def initialize_obstacles():
+    """Initialize all game objects in the coordinate system"""
     global humans, coins
     humans = []
     coins = []
     
     # Spawn humans walking sideways across the road
-    for i in range(200, ROAD_LENGTH-200, 400):  # Space them out along the road
+    for z in range(500, Z_MAX-500, 400):
         # Some humans start from left, some from right
         start_side = random.choice([-1, 1])
         
         # Position just outside the road
-        start_x = (ROAD_WIDTH/2 + 20) * start_side
+        start_x = (X_MAX + 20) * start_side
         
         humans.append({
-            'pos': [start_x, 0, i],  # Start outside the road
-            'dir': -start_side,      # Walk toward the opposite side
+            'pos': [start_x, Y_MIN, z],  # Start outside the road
+            'dir': -start_side,          # Walk toward the opposite side
             'speed': random.uniform(1.5, 3.0),  # Walking speed
             'walk_cycle': random.uniform(0, 6.28),  # Random start phase
             'active': True
         })
     
-    # Spawn coins
+    # Spawn coins in lanes
     for _ in range(20):
         lane = random.randint(0, LANE_COUNT-1)
-        lane_center = -ROAD_WIDTH/2 + (lane + 0.5) * LANE_WIDTH
         coins.append({
-            'pos': [lane_center, 25, random.randint(500, ROAD_LENGTH-200)],
+            'pos': [LANE_POSITIONS[lane], Y_MIN + 25, random.randint(500, Z_MAX-500)],
             'active': True,
             'rotation': random.uniform(0, 360)
         })
 
-def setupCamera():
+def setup_camera():
+    """Set up the camera view using coordinate system"""
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(60, 1.25, 0.1, 3000)
+    gluPerspective(60, 1.25, 0.1, Z_MAX + 1000)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
     
     if camera_mode == "third":
         # Third-person view behind the car
         cam_x = player_pos[0]
-        cam_y = player_pos[1] + 150
+        cam_y = Y_MIN + 150
         cam_z = player_pos[2] - 200
-        gluLookAt(cam_x, cam_y, cam_z,
-                  player_pos[0], player_pos[1] + 50, player_pos[2] + 100,
-                  0, 1, 0)
+        
+        # Look at point ahead of player
+        look_x = player_pos[0]
+        look_y = Y_MIN + 50
+        look_z = player_pos[2] + 100
+        
+        gluLookAt(cam_x, cam_y, cam_z, look_x, look_y, look_z, 0, 1, 0)
     else:
         # First-person view from driver's seat
         cam_x = player_pos[0]
@@ -350,11 +397,57 @@ def setupCamera():
                   cam_x, cam_y, cam_z + 100,
                   0, 1, 0)
 
+def check_super_power_activation():
+    """Check if player has enough score to activate super power"""
+    global super_power_active
+    if score >= 50 and not super_power_active:
+        super_power_active = True
+
+def shoot_bullet():
+    """Create a new bullet in front of the car"""
+    global bullets
+    if super_power_active:
+        bullet = {
+            'pos': [player_pos[0], player_pos[1] + 10, player_pos[2] + 40],
+            'active': True
+        }
+        bullets.append(bullet)
+
+def update_bullets():
+    """Update bullet positions and check for collisions"""
+    global bullets
+    bullet_speed = 20
+    
+    # Move bullets forward
+    for bullet in bullets:
+        if bullet['active']:
+            bullet['pos'][2] += bullet_speed
+            
+            # Check collision with humans
+            for human in humans:
+                if human['active']:
+                    dx = bullet['pos'][0] - human['pos'][0]
+                    dz = bullet['pos'][2] - human['pos'][2]
+                    distance = math.sqrt(dx**2 + dz**2)
+                    
+                    if distance < 30:  # Collision threshold
+                        human['active'] = False  # Deactivate human
+                        bullet['active'] = False  # Deactivate bullet
+                        break
+            
+            # Remove bullets that go too far
+            if bullet['pos'][2] > player_pos[2] + 1000:
+                bullet['active'] = False
+    
+    # Remove inactive bullets
+    bullets = [b for b in bullets if b['active']]
+
 def check_collisions():
+    """Check for collisions between player and game objects"""
     global score, game_over, game_won
     
     # Check for finish line
-    if player_pos[2] >= ROAD_LENGTH - 50:
+    if player_pos[2] >= Z_MAX - 50:
         game_won = True
         return
     
@@ -365,8 +458,9 @@ def check_collisions():
             
         dx = player_pos[0] - human['pos'][0]
         dz = player_pos[2] - human['pos'][2]
+        distance = math.sqrt(dx**2 + dz**2)
         
-        if abs(dx) < 40 and abs(dz) < 40:
+        if distance < 40:
             game_over = True
             return
     
@@ -377,133 +471,61 @@ def check_collisions():
             
         dx = player_pos[0] - coin['pos'][0]
         dz = player_pos[2] - coin['pos'][2]
+        distance = math.sqrt(dx**2 + dz**2)
         
-        if abs(dx) < 40 and abs(dz) < 40:
+        if distance < 40:
             coin['active'] = False
             score += 10
 
-def keyboardListener(key, x, y):
-    global current_lane, game_over, game_won, score, player_pos
+def calculate_target_position():
+    """Calculate target X position based on current lane"""
+    global target_x
+    target_x = LANE_POSITIONS[current_lane]
+
+def keyboard_listener(key, x, y):
+    """Handle keyboard input"""
+    global current_lane, is_transitioning, camera_mode
     
     key = key.decode('utf-8').lower()
     
     if game_over or game_won:
         if key == 'r':  # Restart game
-            restartGame()
+            restart_game()
         return
     
-    # Move left (decrease lane)
-    if key == 'a' and current_lane > 0:
-        current_lane -= 1
-        updatePlayerPosition()
+    # Only accept new lane changes if not currently transitioning
+    if not is_transitioning:
+        # Move left
+        if key == 'a' and current_lane < LANE_COUNT - 1:
+            current_lane += 1
+            calculate_target_position()
+            is_transitioning = True
+        
+        # Move right
+        elif key == 'd' and current_lane > 0:
+            current_lane -= 1
+            calculate_target_position()
+            is_transitioning = True
     
-    # Move right (increase lane)
-    elif key == 'd' and current_lane < LANE_COUNT - 1:
-        current_lane += 1
-        updatePlayerPosition()
+    # Toggle camera view
+    if key == 'c':
+        camera_mode = "first" if camera_mode == "third" else "third"
+    
+    # Manual fire bullet with super power
+    if key == ' ' and super_power_active:
+        shoot_bullet()
 
-def mouseListener(button, state, x, y):
+def mouse_listener(button, state, x, y):
+    """Handle mouse input"""
     global camera_mode
     
     if button == GLUT_RIGHT_BUTTON and state == GLUT_DOWN:
         # Toggle between third-person and first-person camera view
-        if camera_mode == "third":
-            camera_mode = "first"
-        else:
-            camera_mode = "third"
-def updatePlayerPosition():
-    global player_pos
-    # Calculate x position based on current lane (0: leftmost, LANE_COUNT-1: rightmost)
-    lane_center = -ROAD_WIDTH/2 + (current_lane + 0.5) * LANE_WIDTH
-    player_pos[0] = lane_center
-    player_pos[1] = 20  # Keep car slightly above road surface
-
-def showScreen():
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-    glViewport(0, 0, 1000, 800)
-    setupCamera()
-    
-    # Draw game elements
-    draw_road()
-    draw_car()
-    draw_finish_line_banner()
-    draw_finish_line_floor() 
-       
-    for human in humans:
-        draw_human(human)
-    
-    for coin in coins:
-        draw_coin(coin)
-    
-    # Draw UI elements
-    draw_text(10, 770, f"Score: {score}")
-    
-    if game_over:
-        draw_text(400, 400, "GAME OVER! Press R to restart" )
-    elif game_won:
-        draw_text(400, 400, "YOU WON! Press R to play again")
-    
-
-    
-    glutSwapBuffers()
-
-
-
-def restartGame():
-    global game_over, game_won, score, player_pos, current_lane
-    game_over = False
-    game_won = False
-    score = 0
-    current_lane = 1
-    player_pos = [0, 20, 0]
-    initialize_obstacles()
-
-def idle():
-    global player_pos, game_over, game_won, score
-    if not game_over and not game_won:
-        # Automatic forward movement
-        player_pos[2] += move_speed
-        
-        # Update humans walking sideways
-        for human in humans:
-            # Move sideways (left/right)
-            human['pos'][0] += human['dir'] * human['speed']
-            
-            # Update walking animation cycle
-            human['walk_cycle'] += 0.1
-            
-            # If human reaches the other side of the road, reverse direction
-            if (human['dir'] > 0 and human['pos'][0] > ROAD_WIDTH/2 + 20) or \
-               (human['dir'] < 0 and human['pos'][0] < -ROAD_WIDTH/2 - 20):
-                human['dir'] *= -1
-            
-            # If human is far behind player, reposition ahead
-            if human['pos'][2] < player_pos[2] - 200:
-                human['pos'][2] = player_pos[2] + ROAD_LENGTH/2 + random.randint(100, 500)
-                # Randomize starting side again
-                start_side = random.choice([-1, 1])
-                human['pos'][0] = (ROAD_WIDTH/2 + 20) * start_side
-                human['dir'] = -start_side
-        
-        # Update coins (your existing code)
-        for coin in coins:
-            coin['rotation'] = (coin['rotation'] + 5) % 360
-            if coin['pos'][2] < player_pos[2] - 200:
-                coin['pos'][2] = player_pos[2] + random.randint(100, 1000)
-                coin['active'] = True
-        
-        check_collisions()
-        check_win_condition()
-    glutPostRedisplay()
-
-def check_win_condition():
-    global game_won
-    if player_pos[2] >= ROAD_LENGTH:
-        game_won = True
+        camera_mode = "first" if camera_mode == "third" else "third"
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
-    glColor3f(1,1,1)
+    """Draw text on screen"""
+    glColor3f(1, 1, 1)
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
     glLoadIdentity()
@@ -519,19 +541,141 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
+def show_screen():
+    """Main display function"""
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()
+    glViewport(0, 0, 1000, 800)
+    setup_camera()
+    
+    # Draw game elements
+    draw_road()
+    draw_car()
+    draw_finish_line()
+    
+    # Draw game objects
+    for human in humans:
+        draw_human(human)
+    
+    for coin in coins:
+        draw_coin(coin)
+    
+    for bullet in bullets:
+        draw_bullet(bullet)
+    
+    # Draw UI elements
+    draw_text(10, 770, f"Score: {score}")
+    
+    
+    if super_power_active:
+        draw_text(10, 710, "SUPER POWER ACTIVE!")
+    
+    if game_over:
+        draw_text(400, 400, "GAME OVER! Press R to restart")
+    elif game_won:
+        draw_text(400, 400, "YOU WON! Press R to play again")
+    
+    glutSwapBuffers()
+
+def restart_game():
+    """Reset the game to initial state"""
+    global game_over, game_won, score, player_pos, current_lane, super_power_active, bullets
+    game_over = False
+    game_won = False
+    score = 0
+    current_lane = 1
+    player_pos = [0, 20, 0]
+    super_power_active = False
+    bullets = []
+    calculate_target_position()
+    initialize_obstacles()
+
+def idle():
+    """Main game loop function"""
+    global player_pos, game_over, game_won, score, is_transitioning
+    
+    if not game_over and not game_won:
+        # Automatic forward movement
+        player_pos[2] += move_speed
+        
+        # Handle smooth lane transitions
+        if is_transitioning:
+            # Calculate distance to target
+            distance = target_x - player_pos[0]
+            # If we're close enough to the target, snap to it and end transition
+            if abs(distance) < transition_speed:
+                player_pos[0] = target_x
+                is_transitioning = False
+            else:
+                # Move toward target position
+                player_pos[0] += transition_speed * (1 if distance > 0 else -1)
+        
+        # Check for super power activation
+        check_super_power_activation()
+        
+        # Auto-shoot if super power is active (every 20 frames)
+        if super_power_active and int(player_pos[2]) % 100 == 0:
+            shoot_bullet()
+        
+        # Update bullets
+        update_bullets()
+        
+        # Update humans walking sideways
+        for human in humans:
+            # Move sideways (left/right)
+            human['pos'][0] += human['dir'] * human['speed']
+            
+            # Update walking animation cycle
+            human['walk_cycle'] += 0.1
+            
+            # If human reaches the other side of the road, reverse direction
+            if (human['dir'] > 0 and human['pos'][0] > X_MAX + 20) or \
+               (human['dir'] < 0 and human['pos'][0] < X_MIN - 20):
+                human['dir'] *= -1
+            
+            # If human is far behind player, reposition ahead
+            if human['pos'][2] < player_pos[2] - 200:
+                human['pos'][2] = player_pos[2] + (Z_MAX/2) + random.randint(100, 500)
+                # Randomize starting side again
+                start_side = random.choice([-1, 1])
+                human['pos'][0] = (X_MAX + 20) * start_side
+                human['dir'] = -start_side
+        
+        # Update coins
+        for coin in coins:
+            coin['rotation'] = (coin['rotation'] + 5) % 360
+            if coin['pos'][2] < player_pos[2] - 200:
+                coin['pos'][2] = player_pos[2] + random.randint(100, 1000)
+                coin['active'] = True
+        
+        check_collisions()
+    
+    glutPostRedisplay()
+
 def main():
+    """Initialize and start the game"""
     glutInit()
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
-    wind = glutCreateWindow(b"Subway Runner")
-    glEnable(GL_DEPTH_TEST)  
-    updatePlayerPosition()
-    initialize_obstacles()    
-    glutDisplayFunc(showScreen)
-    glutKeyboardFunc(keyboardListener)
-    glutMouseFunc(mouseListener)
+    glutCreateWindow(b"Subway Runner")
+    
+    # Enable depth testing for 3D rendering
+    glEnable(GL_DEPTH_TEST)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    
+    # Initialize game state
+    calculate_target_position()
+    initialize_obstacles()
+    
+    # Register callback functions
+    glutDisplayFunc(show_screen)
+    glutKeyboardFunc(keyboard_listener)
+    glutMouseFunc(mouse_listener)
     glutIdleFunc(idle)
+    
+    # Start the main loop
     glutMainLoop()
 
 if __name__ == "__main__":
