@@ -56,7 +56,7 @@ Subway Runner is a 3D OpenGL-based game where the player controls a automated mo
 | Move Player               | WASD keys            | Navigate sideways                             |
 | Pause Game                |       `P`            | Pauses/resumes the game                       |
 | Restart Game              |       `R`            | Restarts the game from the beginning          |
-| Exit Game                 |       `Esc`          | Closes the game                               |
+| Exit Game                 |       `Alt+F4`       | Closes the game                               |
 
 
 
