@@ -7,8 +7,11 @@ Subway Runner is a 3D OpenGL-based game where the player controls a automated mo
 
 # Contributors:
 
-https://github.com/loki-ly
-https://github.com/shaq-bracu
+[**Mukshitur Rahman Raphy**](https://github.com/loki-ly)
+
+[**Shakhawat Hossain**](https://github.com/shaq-bracu)
+
+
 
 🎮 __Gameplay Overview__
 
