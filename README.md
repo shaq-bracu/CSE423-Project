@@ -5,8 +5,11 @@
 
 Subway Runner is a 3D OpenGL-based game where the player controls a automated moving car, avoid obstacles on the road, increase points by collecting coins, then activate superpower mode when it reaches a certain point. The game is won when the car crosses the finish line
 
-#Contributors:
-loki-ly
+# Contributors:
+
+https://github.com/loki-ly
+https://github.com/shaq-bracu
+
 🎮 __Gameplay Overview__
 
 * Navigate with the car.
