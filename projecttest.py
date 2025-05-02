@@ -3,575 +3,800 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 import math
 import random
-import time
 
-# Game state variables
-game_over = False
-game_won = False
+bullets = []
+fps = True
+vtog = True
+plife = 5
+bmiss = 0
 score = 0
 
-# Coordinate system constants
-X_MIN = -400
-X_MAX = 400
-Y_MIN = 0
-Y_MAX = 300
-Z_MIN = 0
-Z_MAX = 10000  # Finish line position
+gameover = False
+if plife<=0:
+    gameover = not gameover
+
 
 # Camera-related variables
-camera_pos = (-500, 0, 700)
-fovY = 60  # Field of view
-GRID_LENGTH = 600  # Length of grid lines
+cheat = False
+ca = 0
+cx,cy,cz = 0,500,500
+cd = math.sqrt(cx**2 + cy**2 + cz**2)
+# camera_pos = (0,500,500)
+camera_pos = (cd*math.sin(math.degrees(ca)),cd*math.cos(math.degrees(ca)),600)
+# camera_pos =(-970.0, 707.1067811865476, 2382) 
+camera_pos = (-500,000,700)
 
-# Player position and movement
-player_pos = [0, 20, 0]  # [x, y, z] in coordinate system
-move_speed = 5
-super_power_active = False
-bullets = []
 
-# Game objects
-humans = []
-coins = []
 
-class CBullet:
-    def __init__(self, x, y, z):
-        self.pos = [x, y, z + 50]
-        self.active = True
+fovY = 120  # Field of view
+GRID_LENGTH = 5000  # Length of grid lines
+rand_var = 423
+xi,yi,zi,rt = 0,0,0,0
+brt = 0
+bx,by,bz = xi,yi,120
+bix,biy,biz = 0,0,00
+
+lx,ly,lz = 0,0,0
+
+bdx = 50*math.cos(math.radians(rt)) 
+bdy = 50*math.sin(math.radians(rt)) 
+
+class cbullet:
+    def __init__(self,brt,bix,biy,biz):
+        # ox,oy = GRID_LENGTH*8,-GRID_LENGTH*8
+        ox,oy = 0,0
+
+        self.brt = brt
+        self.bix = bix +ox
+        self.biy = biy +oy
+        self.bdx = math.cos(math.radians(self.brt))
+        self.bdy = math.sin(math.radians(self.brt))
+        self.biz = biz+300
          
     def update_position(self):
-        if self.active:
-            self.pos[2] += 20
-            
-            # Deactivate bullets that go too far
-            if self.pos[2] > player_pos[2] + 1000:
-                self.active = False
+        # if not pause
+
+        self.bix += 10*self.bdx
+        self.biy += 10*self.bdy
+
+
+        # if self.x > rx or self.x < -rx:
+        #     self.dx = -self.dx
+        # if self.y > ry or self.y < -ry:
+        #     self.dy = -self.dy
+    # self.x ,self.y,self.rt = 
+        # draw_bullet()
+enemys = []
+
+
+def obstacle():
+    glPushMatrix()
+
+    # gluSphere(gluNewQuadric(), 100, 10, 10)
+
+
+
+
+    glPopMatrix() 
+
+
+
+
+
+r1,r2 = random.randint(-200,200),random.randint(-200,200)
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
-    glColor3f(1, 1, 1)
+    glColor3f(1,1,1)
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
     glLoadIdentity()
-    gluOrtho2D(0, 1000, 0, 800)
+    
+    # Set up an orthographic projection that matches window coordinates
+    gluOrtho2D(0, 1000, 0, 800)  # left, right, bottom, top
+
+    
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
     glLoadIdentity()
+    
+    # Draw text at (x, y) in screen coordinates
     glRasterPos2f(x, y)
     for ch in text:
         glutBitmapCharacter(font, ord(ch))
+    
+    # Restore original projection and modelview matrices
     glPopMatrix()
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
-def draw_car():
-    glPushMatrix()
-    glTranslatef(player_pos[0], player_pos[1], player_pos[2])
+
+def draw_bullet():
+    global bdx,bdy, bullet_flag,brt, bullets,bix,biy,biz
+    bdx += .5*math.cos(math.radians(brt)) 
+    bdy += .5*math.sin(math.radians(brt)) 
+
+    glPushMatrix()  # Save the current matrix state
     
-    # Car body (blue box)
-    glColor3f(0.2, 0.7, 1.0)
-    glPushMatrix()
-    glScalef(40, 20, 80)
-    glutSolidCube(1)
-    glPopMatrix()
+    glColor3f(.5, 1, 1)
+    # glTranslatef(bx,by,bz)
+    for i in bullets:
+        # glTranslatef(xi,yi, 00)
+        glTranslatef(i.bix,i.biy,i.biz)
+        glutSolidCube(60)
+        glTranslatef(-i.bix,-i.biy,-i.biz)
+
+
     
-    # Car top (darker blue)
-    glColor3f(0.1, 0.4, 0.8)
-    glPushMatrix()
-    glTranslatef(0, 20, -10)
-    glScalef(30, 15, 40)
-    glutSolidCube(1)
-    glPopMatrix()
+
+    glTranslatef(bx,by,bz)
+    glTranslatef(bdx,bdy,0)
     
-    # Wheels (four corners)
-    glColor3f(0.1, 0.1, 0.1)
-    wheel_positions = [
-        (-20, -10, -30),  # Front left
-        (20, -10, -30),   # Front right
-        (-20, -10, 30),   # Rear left
-        (20, -10, 30)     # Rear right
-    ]
     
-    for pos in wheel_positions:
+    glutSolidCube(60)
+    
+
+    glPopMatrix() 
+    bullet_flag = False
+
+
+def draw_enemy():
+    global enemys,xi,yi 
+
+      # Save the current matrix state
+    
+    for i in enemys:
         glPushMatrix()
-        glTranslatef(pos[0], pos[1], pos[2])
-        glRotatef(90, 0, 1, 0)
-        glutSolidTorus(5, 8, 16, 16)
+        glColor3f(1, 0, 0)
+        glTranslatef( 0, 0, 100)
+
+    
+        glTranslatef( i[0], i[1], 0)
+        print(i[-1])
+        gluSphere(gluNewQuadric(), i[-1], 10, 10)  # parameters are: quadric, radius, slices, stacks
+        glTranslatef( 0, 0, 150)
+
+        glColor3f(0, 0, 0)
+        gluSphere(gluNewQuadric(), 60, 10, 10)  
+
+        glPopMatrix()  # Restore the previous matrix state
+
+
+
+
+def draw_player():
+    global xi,yi,rt, bullet_flag,cheat,brt,gameover,zi
+    if not gameover:
+        if cheat:
+            rt+=1
+
+        glPushMatrix() 
+        
+        glTranslatef(xi,yi, 100+zi)
+        if zi>=0:
+            zi -= .5
+        glRotate(90,0,0,1)
+
+        glRotatef(rt,0 , 0, 1) 
+
+
+        glColor3f(1, 0, 0) #leg
+        glTranslatef(60, 0, 100) 
+        glRotatef(180, 1, 0, 0)  
+        gluCylinder(gluNewQuadric(), 30, 20, 200, 10, 10)
+
+        glTranslatef(-120, 0, 00) 
+
+        gluCylinder(gluNewQuadric(), 30, 20, 200, 10, 10)
+
+        glColor3f(1, 1, 0)
+        glTranslatef(60, 0, -30)
+
+        glRotatef(180, 1, 0, 0) 
+
+        
+
+        rbd,gbd,bbd = 1,1,0
+
+        #bpody
+
+        glTranslatef(30, 0, 00) 
+        
+        glColor3f(rbd,gbd,bbd)
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, 60) 
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, 60) 
+
+        glutSolidCube(60)
+
+        glTranslatef(-60, 0, 0)  #right 
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, -60) #down
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, -60) 
+
+        glutSolidCube(60)
+        glTranslatef(30, -30,120) 
+
+        # hands and gun
+        glColor3f(0, 1, 0)
+        glRotatef(90, 1, 0, 0)
+        gluCylinder(gluNewQuadric(), 20, 18, 150, 10, 10)  # parameters are: quadric, base radius, top radius, height, slices, stacks
+        # bdx,bdy = 
+        if bullet_flag:
+            brt = rt
+            draw_bullet()
+            cbullet()
+
+        glColor3f(0, 0, 1) 
+        glTranslatef(60, 0, 0) 
+        gluCylinder(gluNewQuadric(), 25, 10, 70, 10, 10)
+
+        glTranslatef(-120, 0, 0) 
+        gluCylinder(gluNewQuadric(), 25, 10, 70, 10, 10)
+
+
+        glColor3f(1, 0, 0)#head
+        glTranslatef(60, 50, 10) 
+
+        gluSphere(gluNewQuadric(), 30, 10, 10)  # parameters are: quadric, radius, slices, stacks
+
+        
+
         glPopMatrix()
-    
-    glPopMatrix()
-
-def draw_human(human):
-    if not human['active']:
-        return
-    
-    glPushMatrix()
-    glTranslatef(human['pos'][0], human['pos'][1], human['pos'][2])
-    
-    # Face direction of movement
-    if human['dir'] > 0:  # Moving right
-        glRotatef(90, 0, 1, 0)
-    else:  # Moving left
-        glRotatef(-90, 0, 1, 0)
-    
-    # Body (torso)
-    glColor3f(0.2, 0.4, 0.8)  # Blue shirt
-    glPushMatrix()
-    glTranslatef(0, 25, 0)
-    glScalef(10, 20, 6)
-    glutSolidCube(1)
-    glPopMatrix()
-    
-    # Head
-    glColor3f(0.9, 0.7, 0.6)  # Skin tone
-    glPushMatrix()
-    glTranslatef(0, 45, 0)
-    glutSolidSphere(8, 16, 16)
-    glPopMatrix()
-    
-    # Arms with walking animation
-    arm_angle = 25 * math.sin(human['walk_cycle'])
-    
-    # Left arm
-    glColor3f(0.2, 0.4, 0.8)
-    glPushMatrix()
-    glTranslatef(-8, 35, 0)
-    glRotatef(arm_angle, 1, 0, 0)
-    glTranslatef(0, -10, 0)
-    glScalef(3, 20, 3)
-    glutSolidCube(1)
-    glPopMatrix()
-    
-    # Right arm
-    glPushMatrix()
-    glTranslatef(8, 35, 0)
-    glRotatef(-arm_angle, 1, 0, 0)
-    glTranslatef(0, -10, 0)
-    glScalef(3, 20, 3)
-    glutSolidCube(1)
-    glPopMatrix()
-    
-    # Legs with walking animation
-    leg_angle = 25 * math.sin(human['walk_cycle'])
-    
-    # Left leg
-    glColor3f(0.1, 0.1, 0.3)  # Dark blue pants
-    glPushMatrix()
-    glTranslatef(-5, 15, 0)
-    glRotatef(leg_angle, 1, 0, 0)
-    glTranslatef(0, -10, 0)
-    glScalef(4, 20, 4)
-    glutSolidCube(1)
-    glPopMatrix()
-    
-    # Right leg
-    glPushMatrix()
-    glTranslatef(5, 15, 0)
-    glRotatef(-leg_angle, 1, 0, 0)
-    glTranslatef(0, -10, 0)
-    glScalef(4, 20, 4)
-    glutSolidCube(1)
-    glPopMatrix()
-    
-    glPopMatrix()
-
-def draw_coin(coin):
-    if not coin['active']:
-        return
-    
-    glPushMatrix()
-    glTranslatef(coin['pos'][0], coin['pos'][1], coin['pos'][2])
-    
-    # Make the coin stand upright
-    glRotatef(0, 1, 0, 0)
-    
-    # Draw a gold ring
-    glColor3f(1, 0.85, 0.1)  # Gold color
-    glutSolidTorus(3, 15, 24, 32)  # Inner radius, outer radius, sides, rings
-    
-    glPopMatrix()
-
-def draw_bullet(bullet):
-    if not bullet.active:
-        return
+      # Restore the previous matrix state
+    else:
+        glPushMatrix() 
         
-    glPushMatrix()
-    glTranslatef(bullet.pos[0], bullet.pos[1], bullet.pos[2])
-    glColor3f(1, 0.5, 0)  # Orange color
-    glutSolidSphere(5, 10, 10)
-    
-    # Add a trail effect
-    glColor4f(1, 0.3, 0, 0.5)  # Semi-transparent orange
-    glPushMatrix()
-    glScalef(1, 1, 5)
-    glutSolidSphere(4, 8, 8)
-    glPopMatrix()
-    
-    glPopMatrix()
+        glTranslatef(xi,yi, 100)
+        glRotate(90,0,0,1)
+        glRotate(90,0,1,0)
 
-def draw_road():
-    # Main road surface
-    glColor3f(0.3, 0.3, 0.3)  # Dark gray for the road
-    glBegin(GL_QUADS)
-    glVertex3f(X_MIN, Y_MIN, Z_MIN)
-    glVertex3f(X_MAX, Y_MIN, Z_MIN)
-    glVertex3f(X_MAX, Y_MIN, Z_MAX)
-    glVertex3f(X_MIN, Y_MIN, Z_MAX)
-    glEnd()
+        glRotatef(rt,0 , 0, 1) 
 
-    # Road borders (solid white lines)
-    glColor3f(1, 1, 1)
-    glLineWidth(6)
-    glBegin(GL_LINES)
-    # Left border
-    glVertex3f(X_MIN, Y_MIN + 1, Z_MIN)
-    glVertex3f(X_MIN, Y_MIN + 1, Z_MAX)
-    # Right border
-    glVertex3f(X_MAX, Y_MIN + 1, Z_MIN)
-    glVertex3f(X_MAX, Y_MIN + 1, Z_MAX)
-    glEnd()
 
-    # Middle dashed line
-    glEnable(GL_LINE_STIPPLE)
-    glLineStipple(1, 0x00FF)  # Dash pattern
-    glLineWidth(4)
-    glBegin(GL_LINES)
-    glVertex3f(0, Y_MIN + 1.5, Z_MIN)
-    glVertex3f(0, Y_MIN + 1.5, Z_MAX)
-    glEnd()
-    glDisable(GL_LINE_STIPPLE)
+        glColor3f(1, 0, 0) #leg
+        glTranslatef(60, 0, 100) 
+        glRotatef(180, 1, 0, 0)  
+        gluCylinder(gluNewQuadric(), 30, 10, 100, 10, 10)
 
-def draw_finish_line():
-    # Checkered floor pattern
-    glPushMatrix()
-    segment_length = 10
-    zigzag_height = 10
-    finish_start = Z_MAX - 50
-    finish_end = Z_MAX
-    
-    glTranslatef(0, Y_MIN + 0.1, finish_start)  # Slightly above road
-    
-    num_segments = int((finish_end - finish_start) / segment_length)
-    num_zigzags = int((X_MAX - X_MIN) / zigzag_height)
+        glTranslatef(-120, 0, 00) 
 
-    for i in range(num_segments):
-        z = i * segment_length
-        for j in range(num_zigzags):
-            x_start = X_MIN + j * zigzag_height
-            # Alternate black and white
-            if (i + j) % 2 == 0:
-                glColor3f(1, 1, 1)  # White
-            else:
-                glColor3f(0, 0, 0)  # Black
-                
-            glBegin(GL_TRIANGLES)
-            # First triangle
-            glVertex3f(x_start, 0, z)
-            glVertex3f(x_start + zigzag_height, 0, z + segment_length / 2)
-            glVertex3f(x_start, 0, z + segment_length)
-            glEnd()
+        gluCylinder(gluNewQuadric(), 30, 10, 100, 10, 10)
 
-            # Second triangle
-            glBegin(GL_TRIANGLES)
-            glVertex3f(x_start + zigzag_height, 0, z + segment_length / 2)
-            glVertex3f(x_start + zigzag_height, 0, z + segment_length)
-            glVertex3f(x_start, 0, z + segment_length)
-            glEnd()
-    glPopMatrix()
-    
-    # Banner above finish line
-    banner_height = 150
-    banner_top = 200
-    banner_z = Z_MAX - 30
-    
-    # Left pole
-    glColor3f(0.7, 0.7, 0.7)  # Gray
-    glPushMatrix()
-    glTranslatef(X_MIN - 10, Y_MIN, banner_z)
-    glRotatef(-90, 1, 0, 0)
-    gluCylinder(gluNewQuadric(), 5, 5, banner_top, 16, 16)
-    glPopMatrix()
-    
-    # Right pole
-    glPushMatrix()
-    glTranslatef(X_MAX + 10, Y_MIN, banner_z)
-    glRotatef(-90, 1, 0, 0)
-    gluCylinder(gluNewQuadric(), 5, 5, banner_top, 16, 16)
-    glPopMatrix()
-    
-    # Banner with stripes
-    stripe_height = 20
-    num_stripes = int((banner_top - banner_height) / stripe_height)
-    
-    for i in range(num_stripes):
-        if i % 2 == 0:
-            glColor3f(1, 0, 0)  # Red
-        else:
-            glColor3f(1, 1, 1)  # White
-            
-        y_bottom = banner_height + i * stripe_height
-        y_top = y_bottom + stripe_height
+        glColor3f(1, 1, 0)
+        glTranslatef(60, 0, -30)
+
+        glRotatef(180, 1, 0, 0) 
+
         
-        glBegin(GL_QUADS)
-        glVertex3f(X_MIN - 10, y_bottom, banner_z)
-        glVertex3f(X_MAX + 10, y_bottom, banner_z)
-        glVertex3f(X_MAX + 10, y_top, banner_z)
-        glVertex3f(X_MIN - 10, y_top, banner_z)
-        glEnd()
 
-def initialize_obstacles():
-    global humans, coins
-    humans = []
-    coins = []
-    
-    # Spawn humans walking sideways across the road
-    for z in range(500, Z_MAX-500, 400):
-        # Some humans start from left, some from right
-        start_side = random.choice([-1, 1])
+        rbd,gbd,bbd = 1,1,0
+
+        #bpody
+
+        glTranslatef(30, 0, 00) 
         
-        # Position just outside the road
-        start_x = (X_MAX + 20) * start_side
+        glColor3f(rbd,gbd,bbd)
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, 60) 
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, 60) 
+
+        glutSolidCube(60)
+
+        glTranslatef(-60, 0, 0)  #right 
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, -60) #down
+
+        glutSolidCube(60)
+        glTranslatef(0, 0, -60) 
+
+        glutSolidCube(60)
+        glTranslatef(30, -30,120) 
+
+        # hands and gun
+        glColor3f(0, 1, 0)
+        glRotatef(90, 1, 0, 0)
+        gluCylinder(gluNewQuadric(), 20, 2, 150, 10, 10)  # parameters are: quadric, base radius, top radius, height, slices, stacks
+        # bdx,bdy = 
+        if bullet_flag:
+            brt = rt
+            draw_bullet()
+            cbullet()
+
+        glColor3f(0, 0, 1) 
+        glTranslatef(60, 0, 0) 
+        gluCylinder(gluNewQuadric(), 25, 10, 70, 10, 10)
+
+        glTranslatef(-120, 0, 0) 
+        gluCylinder(gluNewQuadric(), 25, 10, 70, 10, 10)
+
+
+        glColor3f(1, 0, 0)#head
+        glTranslatef(60, 50, 10) 
+
+        gluSphere(gluNewQuadric(), 30, 10, 10)  # parameters are: quadric, radius, slices, stacks
+
         
-        humans.append({
-            'pos': [start_x, Y_MIN, z],  # Start outside the road
-            'dir': -start_side,          # Walk toward the opposite side
-            'speed': random.uniform(1.5, 3.0),  # Walking speed
-            'walk_cycle': random.uniform(0, 6.28),  # Random start phase
-            'active': True
-        })
-    
-    # Spawn coins
-    for _ in range(20):
-        x_pos = random.uniform(X_MIN + 50, X_MAX - 50)
-        coins.append({
-            'pos': [x_pos, Y_MIN + 25, random.randint(500, Z_MAX-500)],
-            'active': True
-        })
 
-def setupCamera():
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    gluPerspective(fovY, 1.25, 0.1, Z_MAX + 1000)
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
-    
-    # Third-person view behind the car
-    cam_x = player_pos[0]
-    cam_y = Y_MIN + 150
-    cam_z = player_pos[2] - 200
-    
-    # Look at point ahead of player
-    look_x = player_pos[0]
-    look_y = Y_MIN + 50
-    look_z = player_pos[2] + 100
-    
-    gluLookAt(cam_x, cam_y, cam_z, look_x, look_y, look_z, 0, 1, 0)
+        glPopMatrix()
 
-def check_super_power_activation():
-    global super_power_active
-    if score >= 40 and not super_power_active:
-        super_power_active = True
 
-def shoot_bullet():
-    global bullets
-    if super_power_active:
-        bullets.append(CBullet(player_pos[0], player_pos[1], player_pos[2]))
-
-def update_bullets():
-    global bullets
-    
-    # Move bullets forward
-    for bullet in bullets:
-        if bullet.active:
-            bullet.update_position()
-            
-            # Check collision with humans
-            for human in humans:
-                if human['active']:
-                    dx = bullet.pos[0] - human['pos'][0]
-                    dz = bullet.pos[2] - human['pos'][2]
-                    distance = math.sqrt(dx**2 + dz**2)
-                    
-                    if distance < 30:  # Collision threshold
-                        human['active'] = False  # Deactivate human
-                        bullet.active = False  # Deactivate bullet
-                        break
-    
-    # Remove inactive bullets
-    bullets = [b for b in bullets if b.active]
-
-def check_collisions():
-    global score, game_over, game_won
-    
-    # Check for finish line
-    if player_pos[2] >= Z_MAX - 50:
-        game_won = True
-        return
-    
-    # Check for collisions with humans
-    for human in humans:
-        if not human['active']:
-            continue
-            
-        dx = player_pos[0] - human['pos'][0]
-        dz = player_pos[2] - human['pos'][2]
-        distance = math.sqrt(dx**2 + dz**2)
-        
-        if distance < 40:
-            game_over = True
-            return
-    
-    # Check for collisions with coins
-    for coin in coins:
-        if not coin['active']:
-            continue
-            
-        dx = player_pos[0] - coin['pos'][0]
-        dz = player_pos[2] - coin['pos'][2]
-        distance = math.sqrt(dx**2 + dz**2)
-        
-        if distance < 40:
-            coin['active'] = False
-            score += 10
 
 def keyboardListener(key, x, y):
-    global player_pos, game_over, game_won
-    
-    if game_over or game_won:
-        if key == b'r':  # Restart
-            restart_game()
-        return
-    
-    # Move left
-    if key == b'd' and player_pos[0] > X_MIN + 50:
-        player_pos[0] -= 25
-    
-    # Move right
-    if key == b'a' and player_pos[0] < X_MAX - 50:
-        player_pos[0] += 25
-    
-    # Shoot bullet with super power
-    if key == b' ' and super_power_active:
-        shoot_bullet()
+    global camera_pos, xi,yi,rt,cheat,bix,biy,vtog,enemys,gameover,zi
+    # m = math.tan(math.degrees(rt))
+    # print(m,'mm')
 
-def restart_game():
-    global game_over, game_won, score, player_pos, super_power_active, bullets
-    game_over = False
-    game_won = False
-    score = 0
-    player_pos = [0, 20, 0]
-    super_power_active = False
-    bullets = []
-    initialize_obstacles()
+    x, y, z = camera_pos
+    """
+    Handles keyboard inputs for player movement, gun rotation, camera updates, and cheat mode toggles.
+    """
+    # Move forward (W key) 
+    if not gameover:
+        if key == b'q':
+            rt+=5
+            rt = rt %360
+        if key == b'e':
+            rt-=5
+            rt = rt %360
+             
+        if key == b' ':
+            zi +=60
+            # pass
+            
+        if key == b'w':   
+
+            yi+= 25*math.sin(math.radians(rt)) 
+            xi+= 25*math.cos(math.radians(rt)) 
+            biy+= 25*math.sin(math.radians(rt)) 
+            bix+= 25*math.cos(math.radians(rt)) 
+            
+
+        # Move backward (S key) 
+        if key == b's': 
+            yi-= 25*math.sin(math.radians(rt)) 
+            xi-= 25*math.cos(math.radians(rt)) 
+            biy-= 25*math.sin(math.radians(rt)) 
+            bix-= 25*math.cos(math.radians(rt)) 
+        for i in enemys:
+            i[2],i[3] = xi,yi
+
+        # # Rotate gun left (A key) 
+        if key == b'a':
+            yi+= 25*math.cos(math.radians(rt)) 
+            xi-= 25*math.sin(math.radians(rt)) 
+            biy+= 25*math.cos(math.radians(rt)) 
+            bix-= 25*math.sin(math.radians(rt)) 
+            
+
+        # # Rotate gun right (D key) 
+        if key == b'd':  # dash
+            yi-= 25*math.cos(math.radians(rt)) 
+            xi+= 25*math.sin(math.radians(rt)) 
+            biy-= 25*math.cos(math.radians(rt)) 
+            bix+= 25*math.sin(math.radians(rt)) 
+        
+
+        print(xi,yi,zi,rt)
+
+        # # Toggle cheat mode (C key) 
+        # if key == b'c':
+        #     cheat = not cheat
+
+
+
+        # # Toggle cheat vision (V key) 
+        # if key == b'v':
+        #     vtog = not vtog 
+
+    # # Reset the game if R key is pressed
+    if key == b'r':
+        yi+= 250*math.sin(math.radians(rt)) 
+        xi+= 250*math.cos(math.radians(rt)) 
+        biy+= 250*math.sin(math.radians(rt)) 
+        bix+= 250*math.cos(math.radians(rt))
+        
+
+
+
+def specialKeyListener(key, x, y):
+    """
+    Handles special key inputs (arrow keys) for adjusting the camera angle and height.
+    """
+    global camera_pos,rt
+    x, y, z = camera_pos
+
+    print(camera_pos,rt)
+    # Move camera up (UP arrow key)
+    if key == GLUT_KEY_UP:
+        z+=50
+
+    # # Move camera down (DOWN arrow key)
+    if key == GLUT_KEY_DOWN:
+        z-=50
+
+    # moving camera left (LEFT arrow key)
+    if key == GLUT_KEY_LEFT:
+        x-= 50
+        # x -= 10*math.cos(math.radians(5))
+        # y -= 10*math.sin(math.radians(5))  # Small angle decrement for smooth movement
+
+    # moving camera right (RIGHT arrow key)
+    if key == GLUT_KEY_RIGHT:
+        x+= 50
+        # x += 11*math.cos(math.radians(5))
+        # y += 11*math.sin(math.radians(5)) # Small angle increment for smooth movement
+
+    if key==GLUT_KEY_PAGE_UP:
+       y-=50
+        # draw_bullet()
+        
+    if key==GLUT_KEY_PAGE_DOWN:
+        y+=50
+    # print(camera_pos,rt)
+
+    camera_pos = (x, y, z)
+
+bullet_flag = False
+def mouseListener(button, state, x, y):
+    global bdx,bdy,bullet_flag,bullets,bix,biy,biz,rt,fps,gameover
+    """
+    Handles mouse inputs for firing bullets (left click) and toggling camera mode (right click).
+    """
+        # # Left mouse button fires a bullet
+    if not gameover:
+        if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
+            # bdy += 25*math.sin(math.radians(rt)) 
+            # bdx += 25*math.cos(math.radians(rt)) 
+            bullets.append(cbullet(rt,bix,biy,biz))
+            # bullet_flag = True
+
+
+
+            # # Right mouse button toggles camera tracking mode
+        if button == GLUT_RIGHT_BUTTON and state == GLUT_DOWN:
+            fps = not fps
+
+
+def setupCamera():
+    global fps,xi,yi,GRID_LENGTH,rt,vtog
+
+    """
+    Configures the camera's projection and view settings.
+    Uses a perspective projection and positions the camera to look at the target.
+    """
+    glMatrixMode(GL_PROJECTION)  # Switch to projection matrix mode
+    glLoadIdentity()  # Reset the projection matrix
+    # Set up a perspective projection (field of view, aspect ratio, near clip, far clip)
+    gluPerspective(fovY, 1.25, 0.1, 15000) # Think why aspect ration is 1.25?
+    glMatrixMode(GL_MODELVIEW)  # Switch to model-view matrix mode
+    glLoadIdentity()  # Reset the model-view matrix
+
+    # Extract camera position and look-at target
+    if fps :
+        if vtog :
+            x,y,z =   xi,yi ,100+400
+            lx,ly,lz = 200+xi,yi,500
+            
+        else:
+
+            x,y,z =   xi,yi ,100+400
+            # lx,ly,lz = 20*math.cos(math.radians(rt)),20*math.sin(math.radians(rt)),0
+            lx,ly,lz = 200*math.cos(math.radians(rt))+xi,200*math.sin(math.radians(rt))+yi,0
+    else:
+        x, y, z = camera_pos
+        # x, y, z = xi,yi,500
+
+    # Position the camera and set its orientation
+        # lx,ly,lz = GRID_LENGTH*8,GRID_LENGTH*8,0
+
+        lx,ly,lz = 0,0,0
+        # lx,ly,lz = xi,yi,zi
+    gluLookAt(x, y, z,  # Camera position
+              lx,ly,lz,  # Look-at target
+              0, 0, 1)  # Up vector (z-axis)
+
+# def dead_enemy():
+#     global xi,yi
+#     ex,ey = random.randint(-1000,1000),random.randint(-1000,1000)
+#     disx = xi - ex 
+#     disy = yi -ey
+#     dis = math.sqrt((disx)**2 + (disy)**2)
+#     # dex,dey = 
+#     enemys.append((ex,ey,xi,yi,disx,disy,dis))
 
 def idle():
-    global player_pos, game_over, game_won, score
+    global rt,cheat,xi,yi,plife,zi,bix, biy
+    """
+    Idle function that runs continuously:
+    - Triggers screen redraw for real-time updates.
+    """
+    # draw_bullet()
+
+    # # this is for running automatic. commented this for easy coding and fixing
+
+    # yi+= 2.5*math.sin(math.radians(rt)) 
+    # xi+= 2.5*math.cos(math.radians(rt)) 
+    # biy+= 2.5*math.sin(math.radians(rt)) 
+    # bix+= 2.5*math.cos(math.radians(rt)) 
+    if cheat:
+        rt+=1
+    for i in bullets:
+        # glTranslatef(xi,yi, 00)
+        i.update_position()
+
     
-    if not game_over and not game_won:
-        # Automatic forward movement
-        player_pos[2] += move_speed
+    for i in enemys:
+        i[4] = i[2]-i[0]
+        i[5] = i[3]-i[1]
+        i[0] += .0001*i[4]
+        i[1] += .0001*i[5]
+        if i[4] ==0 and i[5] == 0:
+            plife -=1
+
+        s = 1
+        if i[-1] >180:
+            s = -.001
+        if i[-1]<60:
+            s = .001
+        i[-1] += s
+    # for i in range(len(bullets)):
+    #     for j in range(len(enemys)):
+
+    #         if (bullets[i].bix +30 <= enemys[j][0] or bullets[i].bix -30>= enemys[j][0] )and (bullets[i].biy +30 <= enemys[j][1] or bullets[i].biy -30>= enemys[j][1]):
+    #             enemys.pop(j)
+    #             bullets.pop()
         
-        # Check for super power activation
-        check_super_power_activation()
-        
-        # Auto-shoot if super power is active
-        if super_power_active and int(player_pos[2]) % 100 == 0:
-            shoot_bullet()
-        
-        # Update bullets
-        update_bullets()
-        
-        # Update humans walking sideways
-        for human in humans:
-            # Move sideways (left/right)
-            human['pos'][0] += human['dir'] * human['speed']
-            
-            # Update walking animation cycle
-            human['walk_cycle'] += 0.1
-            
-            # If human reaches the other side of the road, reverse direction
-            if (human['dir'] > 0 and human['pos'][0] > X_MAX + 20) or \
-               (human['dir'] < 0 and human['pos'][0] < X_MIN - 20):
-                human['dir'] *= -1
-            
-            # If human is far behind player, reposition ahead
-            if human['pos'][2] < player_pos[2] - 200:
-                new_z = min(player_pos[2] + random.randint(500, 2000), Z_MAX - 600)
-                human['pos'][2] = new_z
-                # Randomize starting side again
-                start_side = random.choice([-1, 1])
-                human['pos'][0] = (X_MAX + 20) * start_side
-                human['dir'] = -start_side
-        
-        # Update coins
-        for coin in coins:
-            if coin['pos'][2] < player_pos[2] - 200:
-                new_z = min(player_pos[2] + random.randint(500, 2000), Z_MAX - 600)
-                new_x = random.uniform(X_MIN + 50, X_MAX - 50)
-                coin['pos'][0] = new_x
-                coin['pos'][2] = new_z
-                coin['active'] = True
-        
-        check_collisions()
-    
+
+    # draw_player()
+    # Ensure the screen updates with the latest changes
     glutPostRedisplay()
 
+
 def showScreen():
+    """
+    Display function to render the game scene:
+    - Clears the screen and sets up the camera.
+    - Draws everything of the screen
+    """
+    # Clear color and depth buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-    glViewport(0, 0, 1000, 800)
+    glLoadIdentity()  # Reset modelview matrix
+    glViewport(0, 0, 1000, 800)  # Set viewport size
+
+    setupCamera()  # Configure camera perspective
+    # draw_player()
     
-    setupCamera()
+
+    # Draw a random points
+    glPointSize(20)
+    glBegin(GL_POINTS)
+    glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+    glEnd()
+
+    # Draw the grid (game floor)
+    glPushMatrix()
+    glTranslatef(-10000, 100, 100) 
+    # glTranslatef(-GRID_LENGTH*8,-GRID_LENGTH*8,0)
+    for i in range(8):
+        # glTranslatef(0,2*GRID_LENGTH, 00) 
+        for j in range( 8):
+            glTranslatef(2*GRID_LENGTH, 0, 00) 
+            glBegin(GL_QUADS)
     
-    # Draw game elements
-    draw_road()
-    draw_car()
-    draw_finish_line()
+            glColor3f(.5, .5, .5)
+            glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+            glVertex3f(0, GRID_LENGTH, 0)
+            glVertex3f(0, 0, 0)
+            glVertex3f(-GRID_LENGTH, 0, 0)
+
+            # glPushMatrix()
+
+            # # obstacle()
+
+            # glPopMatrix()
+
+            glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
+            glVertex3f(0, -GRID_LENGTH, 0)
+            glVertex3f(0, 0, 0)
+            glVertex3f(GRID_LENGTH, 0, 0)
+
+            # obstacle()
+
+
+            glColor3f(.2,.2,.2)
+            glVertex3f(-GRID_LENGTH, -GRID_LENGTH, 0)
+            glVertex3f(-GRID_LENGTH, 0, 0)
+            glVertex3f(0, 0, 0)
+            glVertex3f(0, -GRID_LENGTH, 0)
+
+            # obstacle()
+
+            glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
+            glVertex3f(GRID_LENGTH, 0, 0)
+            glVertex3f(0, 0, 0)
+            glVertex3f(0, GRID_LENGTH, 0)
+
+            # obstacle()
+
+            glEnd()
+        # glTranslatef(-16*GRID_LENGTH, 0, 00) 
     
-    # Draw game objects
-    for human in humans:
-        draw_human(human)
+
+
+    glTranslatef(GRID_LENGTH*8,-GRID_LENGTH*8,0)
+    glPopMatrix() 
+
+    start = GRID_LENGTH*8,-GRID_LENGTH*8,0
     
-    for coin in coins:
-        draw_coin(coin)
+
+    glPushMatrix() 
+    # glTranslatef(GRID_LENGTH*8,-GRID_LENGTH*8,0)
+    glRotate(90,0,0,0)
+    for i in range(13):
+        glBegin(GL_QUADS)
+        glColor3f(0, 1, 0)
+        glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+        glVertex3f(0, GRID_LENGTH, 0)
+        glVertex3f(0, 0, 0)
+        glVertex3f(-GRID_LENGTH, 0, 0)
+        glEnd()
+        glTranslatef(0, -GRID_LENGTH, 00)
+    # glTranslatef(GRID_LENGTH, GRID_LENGTH, 2*GRID_LENGTH)
+    glRotatef(-90, 1, 0, 0)
+    glTranslatef(GRID_LENGTH, GRID_LENGTH, 2*GRID_LENGTH)
+    glRotatef(90, 0, 0, 1)
+    glTranslatef(0,0, 2*GRID_LENGTH)
+    for i in range(13):
+        glBegin(GL_QUADS)
+        glColor3f(0, 0, 1)
+        glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+        glVertex3f(0, GRID_LENGTH, 0)
+        glVertex3f(0, 0, 0)
+        glVertex3f(-GRID_LENGTH, 0, 0)
+        glEnd()
+
+        glTranslatef(GRID_LENGTH,0, 0)
+    glPopMatrix() 
+
+
+    # for i in range(16):
+    #     # glTranslatef(2*GRID_LENGTH, 0, 00) 
+    #     glColor3f(1, 0, 1)
+    #     glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+    #     glVertex3f(0, GRID_LENGTH, 0)
+    #     glVertex3f(0, 0, 0)
+    #     glVertex3f(-GRID_LENGTH, 0, 0)
+    # # glRotate(-90,1,0,0)
+    # glPopMatrix() 
+
+    for i in bullets:
+        glColor3f(1,0,0)#???
+        # glBegin(GL_POINTS)
+        glPushMatrix() 
+        # glTranslatef(GRID_LENGTH*8,-GRID_LENGTH*8,0)
+        # glTranslatef(i.bix, i.biy,i.biz) 
+        
+        glutSolidCube(10)
+        # glEnd()
+        glPopMatrix() 
+            
+
+    # glRotatef(90, 0, 1, 0)  # parameters are: angle, x, y, z
+    # boundary
     
-    for bullet in bullets:
-        draw_bullet(bullet)
+    # glBegin(GL_QUADS)
     
-    # Display game info
-    draw_text(10, 770, f"Score: {score}")
+    # glColor3f(.5, 1, .5)
+
+    # glVertex3f(-1300, -1400,0)
+    # glVertex3f(2000, -1400,0)
+    # glVertex3f(2000, -1400,500)
+    # glVertex3f(-1300, -1400,500)
+    # # glEnd()
+    # # glBegin(GL_QUADS)
+
+    # glColor3f(1, .4, .7)   
+    # glVertex3f(-1300, -1400,0)
+    # glVertex3f(-1300, 1800,0)
+    # glVertex3f(-1300, 1800,500)
+    # glVertex3f(-1300, -1400,500)
+
+    # glColor3f(.5, 1, .5)
+    # glVertex3f(-1300, 1800,00)
+    # glVertex3f(2000, 1800,00)
+    # glVertex3f(2000, 1800,500)
+    # glVertex3f(-1300, 1800, 500)
+
+    # glColor3f(1, .4, .7) 
+    # glVertex3f(2000, 1800,00)
+    # glVertex3f(2000, -1400,0)
+    # glVertex3f(2000, -1400,500)
+    # glVertex3f(2000, 1800,500)
     
-    if super_power_active:
-        draw_text(10, 740, "SUPER POWER ACTIVE! Press SPACE to shoot")
+
+
+    # glVertex3f(-1300, -1400,500)
     
-    if game_over:
-        draw_text(400, 400, "GAME OVER! Press R to restart")
-    elif game_won:
-        draw_text(400, 400, "YOU WON! Press R to play again")
+    # glVertex3f(-1400, -1400,500)
     
+    # glVertex3f(0, 0, 0)
+    # glVertex3f(-GRID_LENGTH, 0, 0)
+
+    # glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
+    # glVertex3f(0, -GRID_LENGTH, 0)
+    # glVertex3f(0, 0, 0)
+    # glVertex3f(GRID_LENGTH, 0, 0)
+    # glEnd()
+
+
+    # glColor3f(0.7, 0.5, 0.95)
+    # glVertex3f(-GRID_LENGTH, -GRID_LENGTH, 0)
+    # glVertex3f(-GRID_LENGTH, 0, 0)
+    # glVertex3f(0, 0, 0)
+    # glVertex3f(0, -GRID_LENGTH, 0)
+
+    # glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
+    # glVertex3f(GRID_LENGTH, 0, 0)
+    # glVertex3f(0, 0, 0)
+    # glVertex3f(0, GRID_LENGTH, 0)
+    # glEnd()
+    # glRotatef(90, 1, 0, 0)
+    # glRotatef(90, 0, 1, 0)
+
+    # for i in range(13):
+    #     glBegin(GL_QUADS)
+    #     glColor3f(0, 0, 1)
+    #     glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+    #     glVertex3f(0, GRID_LENGTH, 0)
+    #     glVertex3f(0, 0, 0)
+    #     glVertex3f(-GRID_LENGTH, 0, 0)
+    #     glEnd()
+    #     glTranslatef(0,-GRID_LENGTH, 00)
+
+   
+
+    draw_player()
+    draw_bullet()
+    # if len(enemys) <5:
+    #     print(len(enemys))
+    #     dead_enemy()
+    #     print('enemy created')
+
+
+    # Display game info text at a fixed screen position
+    draw_text(10, 770, f"Player life remaining : { plife}")
+    draw_text(10, 740, f"Game Score: {score}")
+    draw_text(10, 710, f"Player bullet miss: {bmiss}")
+
     glutSwapBuffers()
 
+
+# Main function to set up OpenGL window and loop
 def main():
     glutInit()
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
-    glutInitWindowSize(1000, 800)
-    glutInitWindowPosition(0, 0)
-    glutCreateWindow(b"Subway Runners")
-    
-    # Enable depth testing
-    glEnable(GL_DEPTH_TEST)
-    glEnable(GL_BLEND)
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    
-    # Initialize game state
-    initialize_obstacles()
-    
-    # Register callbacks
-    glutDisplayFunc(showScreen)
-    glutKeyboardFunc(keyboardListener)
-    glutIdleFunc(idle)
-    
-    # Start the main loop
-    glutMainLoop()
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)  # Double buffering, RGB color, depth test
+    glutInitWindowSize(1000, 800)  # Window size
+    glutInitWindowPosition(0, 0)  # Window position
+    wind = glutCreateWindow(b"3D bullet frenzy")  # Create the window
+
+    glutDisplayFunc(showScreen)  # Register display function
+    glutKeyboardFunc(keyboardListener)  # Register keyboard listener
+    glutSpecialFunc(specialKeyListener)
+    glutMouseFunc(mouseListener)
+    glutIdleFunc(idle)  # Register the idle function to move the bullet automatically
+
+    glutMainLoop()  # Enter the GLUT main loop
 
 if __name__ == "__main__":
     main()
